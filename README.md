@@ -5,6 +5,10 @@
 
 #### Ejercicio – programación concurrente, condiciones de carrera y sincronización de hilos. EJERCICIO INDIVIDUAL O EN PAREJAS.
 
+resuelto por:
+Camilo Alfonso Leon Acosta
+Roger Mauricio Duran
+
 ##### Parte I – Antes de terminar la clase.
 
 Control de hilos con wait/notify. Productor/consumidor.
@@ -36,11 +40,28 @@ Sincronización y Dead-Locks.
 
 2. Revise el código e identifique cómo se implemento la funcionalidad antes indicada. Dada la intención del juego, un invariante debería ser que la sumatoria de los puntos de vida de todos los jugadores siempre sea el mismo(claro está, en un instante de tiempo en el que no esté en proceso una operación de incremento/reducción de tiempo). Para este caso, para N jugadores, cual debería ser este valor?.
 
+	R/ El valor en esta situacion deberia de ser NxHinicial, osea el numero de jugadores multiplicado por la vida inicial que se les otorgue, ya que como sabemos en los combates no se crea ni alimina salud solo se transfiere.
+
 3. Ejecute la aplicación y verifique cómo funcionan las opción ‘pause and check’. Se cumple el invariante?.
+
+![alt text](image-1.png)
+![alt text](image.png)
+![alt text](image-2.png)
+
+El invariante no se cumple por que al momento de ejecutarlo y darle a ‘pause and check’, se evidencia como en el contador de vida total de todos los jugadores el valor cambia, incluso al momento de ver como algunos aun estando en 0 otro jugador crea mas vida sin tener de donde sacar mas siguiendo la logica de las reglas antes dichas. 
+
+
 
 4. Una primera hipótesis para que se presente la condición de carrera para dicha función (pause and check), es que el programa consulta la lista cuyos valores va a imprimir, a la vez que otros hilos modifican sus valores. Para corregir esto, haga lo que sea necesario para que efectivamente, antes de imprimir los resultados actuales, se pausen todos los demás hilos. Adicionalmente, implemente la opción ‘resume’.
 
+R/ La condición de carrera se producía porque al presionar “Pause and check” el hilo principal leía la salud de los inmortales mientras otros hilos seguían modificándola en fight(). La solución fue introducir un objeto de sincronización (pauseLock) y una bandera (isPaused): cuando se pulsa *Pause*, se marca isPaused = true y los hilos se detienen con wait() antes de pelear; al pulsar Resume, se pone isPaused = false y se hace notifyAll() para que todos los hilos continúen, para que la lectura de valores ocurra sin bloqueos.
+
 5. Verifique nuevamente el funcionamiento (haga clic muchas veces en el botón). Se cumple o no el invariante?.
+
+![alt text](image-3.png)
+![alt text](image-4.png)
+
+luego de las modificaciones eh implementaciones el invariante ya se comenzo a respetar de manera correcta
 
 6. Identifique posibles regiones críticas en lo que respecta a la pelea de los inmortales. Implemente una estrategia de bloqueo que evite las condiciones de carrera. Recuerde que si usted requiere usar dos o más ‘locks’ simultáneamente, puede usar bloques sincronizados anidados:
 
@@ -51,16 +72,40 @@ Sincronización y Dead-Locks.
 		}
 	}
 	```
+R/ con la funcion "private static fainal object globalfight" en la clase "inmortal" se implemento la solucion ya que estaba en la modificación simultánea de la salud y la lectura de getHealth(). Se resolvió usando un lock global que asegura consistencia, aunque vuelve las peleas secuenciales y menos eficientes.
+
 
 7. Tras implementar su estrategia, ponga a correr su programa, y ponga atención a si éste se llega a detener. Si es así, use los programas jps y jstack para identificar por qué el programa se detuvo.
 
+R/ synchronized(pauseLock) {
+    while (controlFrame.isPaused()) {
+        pauseLock.wait();  // Espera aquí, sin tomar globalFightLock
+    }
+}
+ 
+ Se evitó el deadlock porque la verificación de pausa ocurre antes de tomar el lock de pelea. Asi que los hilos se detienen antes de entrar en fight(), eliminando la posibilidad de bloqueos.
+
 8. Plantee una estrategia para corregir el problema antes identificado (puede revisar de nuevo las páginas 206 y 207 de _Java Concurrency in Practice_).
 
+R/  Se implementó la separación de locks pauseLock para controlar la pausa y globalFightLock para las peleas. Al no existir anidación de los locks se elimina el riesgo de deadlock y los hilos se gestionan de forma segura.
+
 9. Una vez corregido el problema, rectifique que el programa siga funcionando de manera consistente cuando se ejecutan 100, 1000 o 10000 inmortales. Si en estos casos grandes se empieza a incumplir de nuevo el invariante, debe analizar lo realizado en el paso 4.
+
+![alt text](image-5.png)
+![alt text](image-6.png)
+
+el invariante despues de los 1000 comienza a fallar, al agregar un sleep para que los hilos que quedaron dentro del fight procesen sus resultados y no alteren el invariante.
+
+![alt text](image-7.png)
+![alt text](image-8.png)
+
 
 10. Un elemento molesto para la simulación es que en cierto punto de la misma hay pocos 'inmortales' vivos realizando peleas fallidas con 'inmortales' ya muertos. Es necesario ir suprimiendo los inmortales muertos de la simulación a medida que van muriendo. Para esto:
 	* Analizando el esquema de funcionamiento de la simulación, esto podría crear una condición de carrera? Implemente la funcionalidad, ejecute la simulación y observe qué problema se presenta cuando hay muchos 'inmortales' en la misma. Escriba sus conclusiones al respecto en el archivo RESPUESTAS.txt.
 	* Corrija el problema anterior __SIN hacer uso de sincronización__, pues volver secuencial el acceso a la lista compartida de inmortales haría extremadamente lenta la simulación.
+
+R/La remoción directa de inmortales generaba condiciones de carrera porque varios hilos accedían a la lista al mismo tiempo, causando errores y colapsos. La solución fue usar CopyOnWriteArrayList, que es thread-safe, y en lugar de eliminar físicamente a los inmortales, se marcan como inactivos para que no vuelvan a pelear. Así se evita modificar la lista durante la ejecución y se eliminan las excepciones de concurrencia, manteniendo el sistema estable incluso con miles de inmortales. 
+
 
 11. Para finalizar, implemente la opción STOP.
 
